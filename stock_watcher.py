@@ -122,14 +122,34 @@ def _read_body(resp):
     return raw.decode("utf-8", errors="ignore")
 
 
+SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/"
+
+
+def _fetch_target(url):
+    # Route through ScraperAPI when a key is set: it rotates proxy IPs until one
+    # clears the shop's CDN bot filter, which a datacenter runner IP can't do.
+    # Returns (fetch_url, timeout, direct). ScraperAPI retries internally and can
+    # take up to ~70s, so it needs a much longer timeout than a direct hit.
+    key = os.environ.get("SCRAPERAPI_KEY", "").strip()
+    if not key:
+        return url, 20, True
+    params = {"api_key": key, "url": url}
+    if os.environ.get("SCRAPERAPI_PREMIUM", "").strip().lower() in ("1", "true", "yes"):
+        params["premium"] = "true"
+    return SCRAPERAPI_ENDPOINT + "?" + urllib.parse.urlencode(params), 70, False
+
+
 def _open(opener, url, referer=None):
+    fetch_url, timeout, direct = _fetch_target(url)
     headers = dict(BROWSER_HEADERS)
-    if referer:
+    # Referer / same-origin hints only make sense on a direct hit; through the
+    # proxy the target is a query param, so leave them off.
+    if referer and direct:
         headers["Referer"] = referer
         headers["Sec-Fetch-Site"] = "same-origin"
-    req = urllib.request.Request(url, headers=headers)
+    req = urllib.request.Request(fetch_url, headers=headers)
     try:
-        return opener.open(req, timeout=20)
+        return opener.open(req, timeout=timeout)
     except urllib.error.HTTPError as e:
         # Can't reproduce the CDN's 401/403 locally, so surface what it tells us:
         # the auth challenge header and a snippet of the body are the evidence.
@@ -153,7 +173,9 @@ def fetch_products(urls, homepage=None):
     # into the category requests, the way a browser would.
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
-    if homepage:
+    # Priming only helps a direct hit; through ScraperAPI it just burns a credit.
+    _, _, direct = _fetch_target(homepage or "")
+    if homepage and direct:
         # Prime cookies from the homepage before hitting the category pages.
         with _open(opener, homepage) as resp:
             _read_body(resp)

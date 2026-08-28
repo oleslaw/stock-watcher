@@ -2,9 +2,11 @@ name: stock-watch
 
 on:
   schedule:
-    # Every 5 minutes. GitHub queues scheduled runs on a best-effort basis, so
-    # actual firing can lag 5-15 minutes when the platform is busy.
-    - cron: "*/5 * * * *"
+    # Every 15 minutes. GitHub queues scheduled runs on a best-effort basis, so
+    # actual firing can lag 5-15 minutes when the platform is busy. Cadence is
+    # bounded by the ScraperAPI credit budget: 3 URLs x 96 runs/day = ~288
+    # credits/day.
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       self_test:
@@ -33,5 +35,6 @@ jobs:
           WATCH_SELF_TEST_URLS: ${{ secrets.WATCH_SELF_TEST_URLS }}
           WATCH_HOMEPAGE: ${{ secrets.WATCH_HOMEPAGE }}
           WANTED_PATTERN: ${{ secrets.WANTED_PATTERN }}
+          SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
         # `inputs` is empty on schedule runs, so this collapses to a plain check.
         run: python3 stock_watcher.py ${{ inputs.self_test && '--self-test' || '' }}

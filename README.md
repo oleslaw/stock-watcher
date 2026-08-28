@@ -20,6 +20,8 @@ runs. See `.env.example`.
 | `WATCH_HOMEPAGE` | Hit first to pick up any CDN clearance cookie. Defaults to scheme+host of the first `WATCH_URLS` entry. |
 | `WANTED_PATTERN` | Regex (IGNORECASE) matched against product names. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram delivery. |
+| `SCRAPERAPI_KEY` | Optional. Route fetches through ScraperAPI so a datacenter runner IP can clear the shop's CDN bot filter. 1 credit per request. Unset = fetch direct. |
+| `SCRAPERAPI_PREMIUM` | Optional. `true` forces residential proxies (more credits); only needed if plain requests get blocked. |
 
 ## Setup
 
@@ -93,6 +95,11 @@ matching AND in-stock detection) meeting.
 
 ## Operational notes
 
+- **The shop's CDN blocks datacenter IPs.** Direct fetches from a GitHub-hosted
+  runner get a 401 bot-challenge, so CI routes through ScraperAPI
+  (`SCRAPERAPI_KEY`). Cadence is bounded by the credit budget: at 3 URLs per
+  check, a 15-minute cron spends ~288 credits/day. A residential IP (a
+  self-hosted runner) needs no proxy and no credits.
 - **Cron drift.** Scheduled workflows fire on a best-effort basis and can be
   10–15 minutes late under load. Fine for a restock; not fine for a race.
 - **60-day auto-disable.** GitHub disables scheduled workflows in repos with no
