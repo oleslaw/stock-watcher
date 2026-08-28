@@ -1,0 +1,37 @@
+name: stock-watch
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub queues scheduled runs on a best-effort basis, so
+    # actual firing can lag 5-15 minutes when the platform is busy.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      self_test:
+        description: "Send a test alert using a real in-stock product"
+        type: boolean
+        default: false
+
+# If a run somehow overlaps the next tick, let the newer one win.
+concurrency:
+  group: stock-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest ships python3, and the script is stdlib-only.
+      - name: Check stock
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WATCH_URLS: ${{ secrets.WATCH_URLS }}
+          WATCH_SELF_TEST_URLS: ${{ secrets.WATCH_SELF_TEST_URLS }}
+          WATCH_HOMEPAGE: ${{ secrets.WATCH_HOMEPAGE }}
+          WANTED_PATTERN: ${{ secrets.WANTED_PATTERN }}
+        # `inputs` is empty on schedule runs, so this collapses to a plain check.
+        run: python3 stock_watcher.py ${{ inputs.self_test && '--self-test' || '' }}
