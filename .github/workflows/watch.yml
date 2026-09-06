@@ -1,12 +1,10 @@
 name: stock-watch
 
 on:
-  schedule:
-    # Every 15 minutes. GitHub queues scheduled runs on a best-effort basis, so
-    # actual firing can lag 5-15 minutes when the platform is busy. Cadence is
-    # bounded by the ScraperAPI credit budget: 3 URLs x 96 runs/day = ~288
-    # credits/day.
-    - cron: "*/15 * * * *"
+  # Scheduled cron disabled: ScraperAPI credits exhausted. Re-add when there's a
+  # working fetch path (paid credits, or a self-hosted runner that fetches direct):
+  #   schedule:
+  #     - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       self_test:
