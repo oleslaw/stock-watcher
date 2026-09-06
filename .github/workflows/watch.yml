@@ -1,10 +1,11 @@
 name: stock-watch
 
 on:
-  # Scheduled cron disabled: ScraperAPI credits exhausted. Re-add when there's a
-  # working fetch path (paid credits, or a self-hosted runner that fetches direct):
-  #   schedule:
-  #     - cron: "*/15 * * * *"
+  schedule:
+    # Every 30 min, UK daytime only (07-21 UTC). Stock is listed during the
+    # owner's working day, so overnight checks would only burn ScraperAPI
+    # credits: 1 URL x 30 runs/day ~= 900 credits/month, inside the free tier.
+    - cron: "*/30 7-21 * * *"
   workflow_dispatch:
     inputs:
       self_test:
@@ -34,5 +35,11 @@ jobs:
           WATCH_HOMEPAGE: ${{ secrets.WATCH_HOMEPAGE }}
           WANTED_PATTERN: ${{ secrets.WANTED_PATTERN }}
           SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
+        # Scheduled runs no-op until ScraperAPI credits renew, so the cron can
+        # stay armed without spending anything. Manual runs are never gated.
         # `inputs` is empty on schedule runs, so this collapses to a plain check.
-        run: python3 stock_watcher.py ${{ inputs.self_test && '--self-test' || '' }}
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" && "$(date -u +%F)" < "2026-09-28" ]]; then
+            echo "credits renew 2026-09-28, skipping"; exit 0
+          fi
+          python3 stock_watcher.py ${{ inputs.self_test && '--self-test' || '' }}
